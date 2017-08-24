@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">RtmpPublisher</string>
+    <string name="start">start</string>
+    <string name="rtmp">rtmp:</string>
+</resources>
