@@ -23,7 +23,7 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=gnu++11")
 
 add_library( publisher-lib
              SHARED
-             src/main/cpp/rtmpPublisher.cpp )
+             src/main/cpp/rtmpPublisher.c )
 
 include_directories(libs/include)
 

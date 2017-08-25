@@ -4,7 +4,7 @@ android {
     compileSdkVersion 25
     buildToolsVersion "25.0.2"
     defaultConfig {
-        applicationId "github.qq2653203.rtmppublisher"
+        applicationId "github.adewu.rtmppublisher"
         minSdkVersion 15
         targetSdkVersion 25
         versionCode 1
@@ -13,11 +13,11 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti -fexceptions"
+
             }
         }
         ndk {
             abiFilters "armeabi", "armeabi-v7a"
-
         }
     }
     buildTypes {
