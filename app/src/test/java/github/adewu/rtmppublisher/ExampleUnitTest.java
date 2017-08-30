@@ -1,4 +1,4 @@
-package github.qq2653203.rtmppublisher;
+package github.adewu.rtmppublisher;
 
 import org.junit.Test;
 

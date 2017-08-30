@@ -26,8 +26,7 @@
 #endif
 
 AVFormatContext *g_fmt_ctx;
-AVStream *g_stream;
-//视音频流对应的结构体，用于视音频编解码。
+AVStream *g_stream;//视音频流对应的结构体，用于视音频编解码。
 AVCodecContext *g_codec_ctx;
 AVCodec *g_codec;
 AVPacket g_packet; // 存储压缩数据（视频对应H.264等码流数据，音频对应AAC/MP3等码流数据）
@@ -62,9 +61,9 @@ void print_error(int err) {
 
 
 JNIEXPORT jint JNICALL
-Java_github_qq2653203_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject thiz,
-                                                            jobject buffer, jint width, jint height,
-                                                            jstring url) {
+Java_github_adewu_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject thiz,
+                                                        jobject buffer, jint width, jint height,
+                                                        jstring url) {
 
     int ret;
 
@@ -81,18 +80,15 @@ Java_github_qq2653203_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject
 
     ret = avformat_network_init();
 
-    /**
-     * output initialize
-     */
-    ret = avformat_alloc_output_context2(&g_fmt_ctx,NULL,"flv",PATH);
+    // output initialize
 
-    /**
-     * 初始化编码器
-     * 函数的参数是一个编码器的ID，返回查找到的编码器（没有找到就返回NULL）
-     */
+    ret = avformat_alloc_output_context2(&g_fmt_ctx, NULL, "flv", PATH);
+
+    // output encoder initialize
+
     g_codec = avcodec_find_encoder(AV_CODEC_ID_H264);
 
-    if (!g_codec){
+    if (!g_codec) {
         LOGE("can not find encoder!\n");
         return -1;
     }
@@ -106,9 +102,194 @@ Java_github_qq2653203_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject
     g_codec_ctx->bit_rate = 400000;
     g_codec_ctx->gop_size = 250;
 
-    /**
-     * 有些格式的流的headers需要分开
-     */
+    // some formats want stream headers to be separate
+
     if (g_fmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
         g_codec_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    g_codec_ctx->qmin = 10;
+    g_codec_ctx->qmax = 50;
+    g_codec_ctx->max_b_frames = 1;
+
+    // set h264 preset and tune
+    AVDictionary *param = 0;
+    av_opt_set(g_codec_ctx->priv_data, "preset", "superfast", 0);
+    av_opt_set(g_codec_ctx->priv_data, "tune", "zerolatency", 0);
+
+    //open encoder
+    if (avcodec_open2(g_codec_ctx, g_codec, &param) < 0) {
+        LOGE("Fail to open encoder!");
+        return -1;
+    }
+
+    //add a new stream to output,should be called by the user before avformat_write_header() for muxing
+    g_stream = avformat_new_stream(g_codec_ctx, g_codec);
+    if (g_stream == NULL) {
+        return -1;
+    }
+    g_stream->time_base.num = 1;
+    g_stream->time_base.den = 25;
+    g_stream->codec = g_codec_ctx;
+
+    //open output url ,set before avformat_write_header() for muxing
+    ret = avio_open(g_codec_ctx, PATH, AVIO_FLAG_READ_WRITE);
+    if (ret < 0) {
+        LOGE("Failed to open ouput url!");
+        print_error(ret);
+        return -1;
+    }
+
+    //write file header
+    avformat_write_header(g_codec_ctx, NULL);
+
+    g_start_time = av_gettime();
+
+    LOGI("FFMpeg initial success!");
+    return 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_github_adewu_rtmppublisher_MainActivity_encode(JNIEnv *env, jobject obj, jbyte yuv) {
+    int ret;
+    int enc_got_frame = 0;
+    int i = 0;
+
+    //allocate memory for frame
+    g_frame = av_frame_alloc();
+
+    uint8_t *out_buffer = (uint8_t *) av_malloc(
+            av_image_get_buffer_size(AV_PIX_FMT_YUV420P, g_codec_ctx->width, g_codec_ctx->height,
+                                     1));
+    av_image_fill_arrays(g_frame->data, g_frame->linesize, out_buffer, AV_PIX_FMT_YUV420P,
+                         g_codec_ctx->width, g_codec_ctx->height, 1);
+
+    //安卓摄像头数据为NV21格式，此处将其转换为YUV420P格式
+    jbyte *in = (jbyte *) (*env)->GetByteArrayElements(env, yuv, 0);
+
+    if (in == NULL) {
+        LOGE("get nv21 data failed!");
+        return -1;
+    }
+
+    memcpy(g_frame->data[0], in, g_y_length);
+    for (int i = 0; i < g_uv_length; i++) {
+        *(g_frame->data[2] + i) = *(in + g_y_length + i * 2); // address + width * height + i *2
+        *(g_frame->data[1] + i) = *(in + g_y_length + i * 2 + 1);
+    }
+
+    g_frame->format = AV_PIX_FMT_YUV420P;
+    g_frame->width = g_yuv_width;
+    g_frame->height = g_yuv_height;
+
+    g_packet.data = NULL;
+    g_packet.size = 0;
+    // 定义AVPacket对象后,请使用av_init_packet进行初始化
+    av_init_packet(&g_packet);
+
+    /** 编码一帧视频数据
+    * int avcodec_encode_video2(AVCodecContext *avctx, AVPacket *avpkt,
+    const AVFrame *frame, int *got_packet_ptr);
+
+    该函数每个参数的含义在注释里面已经写的很清楚了，在这里用中文简述一下：
+    avctx：编码器的AVCodecContext。
+    avpkt：编码输出的AVPacket。
+    frame：编码输入的AVFrame。
+    got_packet_ptr：成功编码一个AVPacket的时候设置为1。
+    函数返回0代表编码成功。*/
+    ret = avcodec_encode_video2(g_codec_ctx, &g_packet, g_frame, &enc_got_frame);
+
+    if (ret < 0) {
+        LOGE("Failed to encode !");
+        print_error(ret);
+    }
+    av_frame_free(&g_frame);
+
+    if (enc_got_frame == 1) {
+        LOGI("successed to encode frame: %5d\tsize:%5d\n", g_frame_count, g_packet.size);
+        g_frame_count++;
+        //标识该AVPacket所属的视频/音频流。
+        g_packet.stream_index = g_stream->index;
+
+        //Write PTS
+        AVRational time_base = g_fmt_ctx->streams[0]->time_base;//{1,1000}
+        AVRational r_framerate1 = {60, 2}; //{50,2}
+        AVRational time_base_q = {1, AV_TIME_BASE};
+        //duration between 2 frames(us)
+        int64_t calc_duration = (double) (AV_TIME_BASE) * (1 / av_q2d(r_framerate1));
+
+        //parameters
+        g_packet.pts = av_rescale_q(g_frame_count * calc_duration, time_base_q, time_base); //Rescale a 64-bit integer by 2 rational numbers.
+        g_packet.dts = g_packet.pts;
+        g_packet.duration = av_rescale_q(calc_duration, time_base_q, time_base);
+        g_packet.pos = -1;
+
+        //delay
+        int64_t pts_time = av_rescale_q(g_packet.dts, time_base, time_base_q);
+        int64_t now_time = av_gettime() - g_start_time;
+        if (pts_time > now_time) {
+            av_usleep(pts_time - now_time);
+        }
+
+        ret = av_interleaved_write_frame(g_fmt_ctx, &g_packet);
+    }
+
+    av_packet_unref(&g_packet);
+    return 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_github_adewu_rtmppublisher_MainActivity_flush(JNIEnv *env,jobject obj) {
+    int ret;
+    int got_frame;
+    AVPacket enc_packet;
+    if (!(g_fmt_ctx->streams[0]->codec->codec->capabilities & CODEC_CAP_DELAY)){
+        return 0;
+    }
+    while(1){
+        enc_packet.data = NULL;
+        enc_packet.size = 0;
+        av_init_packet(&enc_packet);
+        ret = avcodec_encode_video2(g_fmt_ctx->streams[0]->codec,&enc_packet,NULL,&got_frame);
+        if(ret < 0)
+            break;
+        if (!got_frame){
+            ret = 0;
+            break;
+        }
+        LOGI("flush encoder:succeed to encode 1 frame!\tsize:%5d\n",enc_packet.size);
+        //write pts
+        AVRational time_base = g_fmt_ctx->streams[0]->time_base; //{1,1000}
+        AVRational r_framerate1 = {60,2};
+        AVRational time_base_q = {1,AV_TIME_BASE};
+
+        //duration between 2 frames(us)
+        int64_t calc_duration = (double)(AV_TIME_BASE) * (1 / av_q2d(r_framerate1));
+
+        //parameters
+        enc_packet.pts = av_rescale_q(g_frame_count * calc_duration,time_base_q,time_base);
+        enc_packet.dts = enc_packet.pts;
+        enc_packet.duration = av_rescale_q(calc_duration,time_base_q,time_base);
+
+        //convert PTS/DTS
+        enc_packet.pos = -1;
+        g_frame_count++;
+        g_fmt_ctx->duration = enc_packet.duration * g_frame_count;
+
+        //mux encoded frame
+        ret = av_interleaved_write_frame(g_fmt_ctx,&enc_packet);
+        if (ret < 0)
+            break;
+    }
+    //write file trailer
+    av_write_trailer(g_fmt_ctx);
+    return 0;
+}
+
+JNIEXPORT jint JNICALL
+Java_github_adewu_rtmppublisher_MainActivity_close(JNIEnv *env,jobject obj) {
+    if (g_stream){
+        avcodec_close(g_stream->codec);
+    }
+    avio_close(g_fmt_ctx->pb);
+    avformat_free_context(g_fmt_ctx);
+    return 0
 }

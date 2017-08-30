@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    tools:context="github.qq2653203.rtmppublisher.github.adewu.rtmppublisher.MainActivity">
+    tools:context="github.adewu.rtmppublisher.github.adewu.rtmppublisher.MainActivity">
 
     <github.adewu.rtmppublisher.widgets.PreviewSurfaceView
         android:id="@+id/preview_sv"

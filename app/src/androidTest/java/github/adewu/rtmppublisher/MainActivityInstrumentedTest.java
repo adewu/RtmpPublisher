@@ -1,4 +1,4 @@
-package github.qq2653203.rtmppublisher;
+package github.adewu.rtmppublisher;
 
 import android.content.Context;
 import android.support.test.InstrumentationRegistry;
@@ -10,8 +10,6 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
-
-import github.adewu.rtmppublisher.MainActivity;
 
 import static android.support.test.espresso.action.ViewActions.click;
 import static   android.support.test.espresso.matcher.ViewMatchers.withId;
