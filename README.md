@@ -1,7 +1,7 @@
 # RtmpPublisher
 Android利用FFmpeg编码、推RTmp流到Nginx服务器
 TODO LIST:
-1 视频采集
+1 视频采集\n
 2 视频转码
 3 视频编码
 4 视频推送
