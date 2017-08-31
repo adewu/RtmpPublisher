@@ -32,3 +32,6 @@ include_directories(libs/include)
 target_link_libraries( publisher-lib libffmpeg
                        ${log-lib} )
 
+target_link_libraries( publisher-lib
+                      android
+                      log)

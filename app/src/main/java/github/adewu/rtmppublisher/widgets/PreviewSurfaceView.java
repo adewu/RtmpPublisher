@@ -5,12 +5,14 @@ import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
 import android.util.AttributeSet;
+import android.util.Log;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
 import java.io.IOException;
 import java.util.List;
 
+import github.adewu.rtmppublisher.BuildConfig;
 import github.adewu.rtmppublisher.MainActivity;
 
 
@@ -21,6 +23,18 @@ import github.adewu.rtmppublisher.MainActivity;
 
 public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Callback, Camera.PreviewCallback {
 
+    static {
+        System.loadLibrary("publisher-lib");
+    }
+
+    public native int close();
+
+    public native int flush();
+
+    public native int initFFmpeg(int width, int height, String url);
+
+    public native int encode(byte[] data);
+
     private Camera mCamera;
     private SurfaceHolder mSurfaceHolder;
     private int mPreviewWidth = 640;
@@ -30,6 +44,7 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
     private int mPreviewRotation = 90;
     private int mCamId = -1;
     private PreviewFrameListener mPreviewFrameListener;
+    private boolean mIsPublishing = false;
 
     public PreviewSurfaceView(Context context) {
         super(context);
@@ -69,7 +84,27 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
 
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
-        mPreviewFrameListener.previewFrame(data);
+        if (mIsPublishing)
+            encode(data);
+        else
+            mPreviewFrameListener.previewFrame(data);
+    }
+
+    public void startPublish(String url) {
+        if(0 == initFFmpeg(mCamera.getParameters().getPreviewSize().width,mCamera.getParameters().getPreviewSize().height,url)){
+            if (BuildConfig.DEBUG) Log.d("PreviewSurfaceView", "FFmpeg initial successed!");
+            mIsPublishing = true;
+        }
+    }
+
+    public void onActivityResume() {
+
+    }
+
+    public void onActivityPause() {
+        mIsPublishing = false;
+        flush();
+        close();
     }
 
     public void setOnPreviewFrameListener(PreviewFrameListener listener) {

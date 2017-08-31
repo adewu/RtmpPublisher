@@ -23,14 +23,10 @@ import github.adewu.rtmppublisher.R;
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener, PreviewSurfaceView.PreviewFrameListener {
 
-
-    static {
-        System.loadLibrary("publisher-lib");
-    }
-
     private github.adewu.rtmppublisher.widgets.PreviewSurfaceView mPreviewSurfaceView;
     private android.widget.Button mStartBtn;
     private android.widget.EditText mUrlET;
+    private final static String OUTPUT_URL = "rtmp://192.168.3.255:1935/rtmplive/room1";
 
     private int PERMISSION_REQUEST_CAMERA = 95;
     public static boolean hasCameraPermission = false;
@@ -61,12 +57,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     @Override
     protected void onResume() {
         super.onResume();
-
+        mPreviewSurfaceView.onActivityResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
+        mPreviewSurfaceView.onActivityPause();
+
     }
 
     @Override
@@ -82,7 +80,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
-    public native int callMeMaybe(ByteBuffer byteBuffer, int length);
 
     @Override
     public void onClick(View v) {
@@ -98,13 +95,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     @Override
     public void previewFrame(byte[] data) {
-        if (BuildConfig.DEBUG) Log.d("PreviewSurfaceView", "data[0]:" + data[0]);
+//        if (BuildConfig.DEBUG) Log.d("PreviewSurfaceView", "data[0]:" + data[0]);
     }
 
     private void startPublish() {
         String outputUrl = mUrlET.getText().toString();
         if (TextUtils.isEmpty(outputUrl)) {
             Toast.makeText(this, "url cannot be null", Toast.LENGTH_SHORT).show();
+            mPreviewSurfaceView.startPublish(OUTPUT_URL);
             return;
         }
     }

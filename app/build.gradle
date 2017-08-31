@@ -13,7 +13,6 @@ android {
         externalNativeBuild {
             cmake {
                 cppFlags "-frtti -fexceptions"
-
             }
         }
         ndk {

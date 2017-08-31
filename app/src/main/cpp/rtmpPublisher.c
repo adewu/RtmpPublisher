@@ -2,6 +2,7 @@
 #include <jni.h>
 #include <time.h>
 #include <assert.h>
+#include <android/log.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -14,16 +15,10 @@
 #include <libavutil/opt.h>
 #include <libavutil/imgutils.h>
 
-#ifdef ANDROID
 
-#include <android/log.h>
+#define LOGE(...)  __android_log_print(ANDROID_LOG_ERROR, "(-_-!)","%s", ##__VA_ARGS__)
+#define LOGI(...)  __android_log_print(ANDROID_LOG_INFO,  "(^_^)","%s", ##__VA_ARGS__)
 
-#define LOGE(format, ...)  __android_log_print(ANDROID_LOG_ERROR, "(-_-!)", format, ##__VA_ARGS__)
-#define LOGI(format, ...)  __android_log_print(ANDROID_LOG_INFO,  "(^_^)", format, ##__VA_ARGS__)
-#else
-#define LOGE(format, ...)  printf("(-_-!) " format "\n", ##__VA_ARGS__)
-#define LOGI(format, ...)  printf("(^_^) " format "\n", ##__VA_ARGS__)
-#endif
 
 AVFormatContext *g_fmt_ctx;
 AVStream *g_stream;//视音频流对应的结构体，用于视音频编解码。
@@ -56,14 +51,14 @@ void print_error(int err) {
     if (av_strerror(err, errbuf, sizeof(errbuf)) < 0)
         errbuf_ptr = strerror(AVUNERROR(err));
 //    av_log(NULL, AV_LOG_ERROR, "%s: %s\n", "hehe", errbuf_ptr);
-    LOGE(" %s", errbuf_ptr);
+    LOGE(errbuf_ptr);
 }
 
 
 JNIEXPORT jint JNICALL
-Java_github_adewu_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject thiz,
-                                                        jobject buffer, jint width, jint height,
-                                                        jstring url) {
+Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_initFFmpeg(JNIEnv *env, jobject thiz,
+                                                                      jint width, jint height,
+                                                                      jstring url) {
 
     int ret;
 
@@ -122,7 +117,7 @@ Java_github_adewu_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject thi
     }
 
     //add a new stream to output,should be called by the user before avformat_write_header() for muxing
-    g_stream = avformat_new_stream(g_codec_ctx, g_codec);
+    g_stream = avformat_new_stream(g_fmt_ctx, g_codec);
     if (g_stream == NULL) {
         return -1;
     }
@@ -139,7 +134,7 @@ Java_github_adewu_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject thi
     }
 
     //write file header
-    avformat_write_header(g_codec_ctx, NULL);
+    ret = avformat_write_header(g_fmt_ctx, NULL);
 
     g_start_time = av_gettime();
 
@@ -148,7 +143,8 @@ Java_github_adewu_rtmppublisher_MainActivity_initFFmpeg(JNIEnv *env, jobject thi
 }
 
 JNIEXPORT jint JNICALL
-Java_github_adewu_rtmppublisher_MainActivity_encode(JNIEnv *env, jobject obj, jbyte yuv) {
+Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encode(JNIEnv *env, jobject obj,
+                                                                  jbyte yuv) {
     int ret;
     int enc_got_frame = 0;
     int i = 0;
@@ -217,7 +213,8 @@ Java_github_adewu_rtmppublisher_MainActivity_encode(JNIEnv *env, jobject obj, jb
         int64_t calc_duration = (double) (AV_TIME_BASE) * (1 / av_q2d(r_framerate1));
 
         //parameters
-        g_packet.pts = av_rescale_q(g_frame_count * calc_duration, time_base_q, time_base); //Rescale a 64-bit integer by 2 rational numbers.
+        g_packet.pts = av_rescale_q(g_frame_count * calc_duration, time_base_q,
+                                    time_base); //Rescale a 64-bit integer by 2 rational numbers.
         g_packet.dts = g_packet.pts;
         g_packet.duration = av_rescale_q(calc_duration, time_base_q, time_base);
         g_packet.pos = -1;
@@ -237,37 +234,37 @@ Java_github_adewu_rtmppublisher_MainActivity_encode(JNIEnv *env, jobject obj, jb
 }
 
 JNIEXPORT jint JNICALL
-Java_github_adewu_rtmppublisher_MainActivity_flush(JNIEnv *env,jobject obj) {
+Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_flush(JNIEnv *env, jobject obj) {
     int ret;
     int got_frame;
     AVPacket enc_packet;
-    if (!(g_fmt_ctx->streams[0]->codec->codec->capabilities & CODEC_CAP_DELAY)){
+    if (!(g_fmt_ctx->streams[0]->codec->codec->capabilities & CODEC_CAP_DELAY)) {
         return 0;
     }
-    while(1){
+    while (1) {
         enc_packet.data = NULL;
         enc_packet.size = 0;
         av_init_packet(&enc_packet);
-        ret = avcodec_encode_video2(g_fmt_ctx->streams[0]->codec,&enc_packet,NULL,&got_frame);
-        if(ret < 0)
+        ret = avcodec_encode_video2(g_fmt_ctx->streams[0]->codec, &enc_packet, NULL, &got_frame);
+        if (ret < 0)
             break;
-        if (!got_frame){
+        if (!got_frame) {
             ret = 0;
             break;
         }
-        LOGI("flush encoder:succeed to encode 1 frame!\tsize:%5d\n",enc_packet.size);
+        LOGI("flush encoder:succeed to encode 1 frame!\tsize:%5d\n", enc_packet.size);
         //write pts
         AVRational time_base = g_fmt_ctx->streams[0]->time_base; //{1,1000}
-        AVRational r_framerate1 = {60,2};
-        AVRational time_base_q = {1,AV_TIME_BASE};
+        AVRational r_framerate1 = {60, 2};
+        AVRational time_base_q = {1, AV_TIME_BASE};
 
         //duration between 2 frames(us)
-        int64_t calc_duration = (double)(AV_TIME_BASE) * (1 / av_q2d(r_framerate1));
+        int64_t calc_duration = (double) (AV_TIME_BASE) * (1 / av_q2d(r_framerate1));
 
         //parameters
-        enc_packet.pts = av_rescale_q(g_frame_count * calc_duration,time_base_q,time_base);
+        enc_packet.pts = av_rescale_q(g_frame_count * calc_duration, time_base_q, time_base);
         enc_packet.dts = enc_packet.pts;
-        enc_packet.duration = av_rescale_q(calc_duration,time_base_q,time_base);
+        enc_packet.duration = av_rescale_q(calc_duration, time_base_q, time_base);
 
         //convert PTS/DTS
         enc_packet.pos = -1;
@@ -275,7 +272,7 @@ Java_github_adewu_rtmppublisher_MainActivity_flush(JNIEnv *env,jobject obj) {
         g_fmt_ctx->duration = enc_packet.duration * g_frame_count;
 
         //mux encoded frame
-        ret = av_interleaved_write_frame(g_fmt_ctx,&enc_packet);
+        ret = av_interleaved_write_frame(g_fmt_ctx, &enc_packet);
         if (ret < 0)
             break;
     }
@@ -285,11 +282,11 @@ Java_github_adewu_rtmppublisher_MainActivity_flush(JNIEnv *env,jobject obj) {
 }
 
 JNIEXPORT jint JNICALL
-Java_github_adewu_rtmppublisher_MainActivity_close(JNIEnv *env,jobject obj) {
-    if (g_stream){
+Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_close(JNIEnv *env, jobject obj) {
+    if (g_stream) {
         avcodec_close(g_stream->codec);
     }
     avio_close(g_fmt_ctx->pb);
     avformat_free_context(g_fmt_ctx);
-    return 0
+    return 0;
 }
