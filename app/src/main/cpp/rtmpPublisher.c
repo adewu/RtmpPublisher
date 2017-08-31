@@ -126,7 +126,7 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_initFFmpeg(JNIEnv *en
     g_stream->codec = g_codec_ctx;
 
     //open output url ,set before avformat_write_header() for muxing
-    ret = avio_open(g_codec_ctx, PATH, AVIO_FLAG_READ_WRITE);
+    ret = avio_open(&g_fmt_ctx->pb, PATH, AVIO_FLAG_READ_WRITE);
     if (ret < 0) {
         LOGE("Failed to open ouput url!");
         print_error(ret);
@@ -144,7 +144,7 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_initFFmpeg(JNIEnv *en
 
 JNIEXPORT jint JNICALL
 Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encode(JNIEnv *env, jobject obj,
-                                                                  jbyte yuv) {
+                                                                  jbyteArray yuv) {
     int ret;
     int enc_got_frame = 0;
     int i = 0;
@@ -200,7 +200,7 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encode(JNIEnv *env, j
     av_frame_free(&g_frame);
 
     if (enc_got_frame == 1) {
-        LOGI("successed to encode frame: %5d\tsize:%5d\n", g_frame_count, g_packet.size);
+        LOGI("Succeed to encode frame: %5d\tsize:%5d\n", g_frame_count, g_packet.size);
         g_frame_count++;
         //标识该AVPacket所属的视频/音频流。
         g_packet.stream_index = g_stream->index;

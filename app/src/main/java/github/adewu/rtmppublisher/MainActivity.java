@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private github.adewu.rtmppublisher.widgets.PreviewSurfaceView mPreviewSurfaceView;
     private android.widget.Button mStartBtn;
     private android.widget.EditText mUrlET;
-    private final static String OUTPUT_URL = "rtmp://192.168.3.255:1935/rtmplive/room1";
+    private final static String OUTPUT_URL = "rtmp://192.168.3.133:1935/rtmplive/room1";
 
     private int PERMISSION_REQUEST_CAMERA = 95;
     public static boolean hasCameraPermission = false;
@@ -38,7 +38,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA},
+                    new String[]{Manifest.permission.CAMERA,Manifest.permission.WRITE_EXTERNAL_STORAGE},
                     PERMISSION_REQUEST_CAMERA);
         } else {
             hasCameraPermission = true;

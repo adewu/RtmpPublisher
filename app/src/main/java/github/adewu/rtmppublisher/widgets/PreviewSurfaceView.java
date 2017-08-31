@@ -4,6 +4,10 @@ import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
 import android.hardware.Camera;
+import android.os.Bundle;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.Message;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.SurfaceHolder;
@@ -11,6 +15,8 @@ import android.view.SurfaceView;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import github.adewu.rtmppublisher.BuildConfig;
 import github.adewu.rtmppublisher.MainActivity;
@@ -82,18 +88,44 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
 
     }
 
+
+    private class EncodeThread extends Thread {
+
+    }
+
+    private HandlerThread mEncodeHandlerTHread = new HandlerThread("encode");
+
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
-        if (mIsPublishing)
-            encode(data);
-        else
+        if (mIsPublishing) {
+
+            mDataBundle.remove("data");
+            mDataBundle.putByteArray("data",data);
+            android.os.Message message = mEncodeHandler.obtainMessage();
+            message.setData(mDataBundle);
+            mEncodeHandler.sendMessage(message);
+        } else
             mPreviewFrameListener.previewFrame(data);
     }
 
+    private Handler mEncodeHandler;
+    private Message mEncodeMessage;
+    private Bundle mDataBundle;
+
     public void startPublish(String url) {
-        if(0 == initFFmpeg(mCamera.getParameters().getPreviewSize().width,mCamera.getParameters().getPreviewSize().height,url)){
+        if (0 == initFFmpeg(mCamera.getParameters().getPreviewSize().width, mCamera.getParameters().getPreviewSize().height, url)) {
             if (BuildConfig.DEBUG) Log.d("PreviewSurfaceView", "FFmpeg initial successed!");
             mIsPublishing = true;
+            mEncodeMessage = new Message();
+            mDataBundle = new Bundle();
+            mEncodeHandlerTHread.start();
+            mEncodeHandler = new Handler(mEncodeHandlerTHread.getLooper()) {
+                @Override
+                public void handleMessage(Message msg) {
+                    encode(msg.getData().getByteArray("data"));
+
+                }
+            };
         }
     }
 
