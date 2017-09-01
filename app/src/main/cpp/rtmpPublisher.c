@@ -147,7 +147,7 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encode(JNIEnv *env, j
                                                                   jbyteArray yuv) {
     int ret;
     int enc_got_frame = 0;
-    int i = 0;
+
 
     //allocate memory for frame
     g_frame = av_frame_alloc();
