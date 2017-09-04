@@ -2,6 +2,7 @@ package github.adewu.rtmppublisher;
 
 import android.Manifest;
 import android.content.pm.PackageManager;
+import android.media.MediaRecorder;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.v4.app.ActivityCompat;
@@ -27,7 +28,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private android.widget.Button mStartBtn;
     private android.widget.EditText mUrlET;
     private final static String OUTPUT_URL = "rtmp://192.168.3.133:1935/rtmplive/room1";
-
+    private LiveAudioRecorder mLiveAudioRecorder;
     private int PERMISSION_REQUEST_CAMERA = 95;
     public static boolean hasCameraPermission = false;
 
@@ -38,7 +39,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 Manifest.permission.CAMERA)
                 != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.CAMERA,Manifest.permission.WRITE_EXTERNAL_STORAGE},
+                    new String[]{Manifest.permission.CAMERA,Manifest.permission.WRITE_EXTERNAL_STORAGE,Manifest.permission.RECORD_AUDIO},
                     PERMISSION_REQUEST_CAMERA);
         } else {
             hasCameraPermission = true;
@@ -50,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         this.mPreviewSurfaceView = (PreviewSurfaceView) findViewById(R.id.preview_sv);
         mPreviewSurfaceView.setOnPreviewFrameListener(this);
         mUrlET.setText(SharedPreferenceUtils.getStringData(this, "output_url", ""));
-
+        mLiveAudioRecorder = new LiveAudioRecorder();
     }
 
 
@@ -103,6 +104,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         if (TextUtils.isEmpty(outputUrl)) {
             Toast.makeText(this, "url cannot be null", Toast.LENGTH_SHORT).show();
             mPreviewSurfaceView.startPublish(OUTPUT_URL);
+            mLiveAudioRecorder.startRecording();
             return;
         }
     }

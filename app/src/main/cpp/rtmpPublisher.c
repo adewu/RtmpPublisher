@@ -143,11 +143,14 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_initFFmpeg(JNIEnv *en
 }
 
 JNIEXPORT jint JNICALL
-Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encode(JNIEnv *env, jobject obj,
+Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encodeVideo(JNIEnv *env, jobject obj,
                                                                   jbyteArray yuv) {
+
+    if(yuv == NULL)
+        return 0;
+
     int ret;
     int enc_got_frame = 0;
-
 
     //allocate memory for frame
     g_frame = av_frame_alloc();
@@ -200,7 +203,7 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encode(JNIEnv *env, j
     av_frame_free(&g_frame);
 
     if (enc_got_frame == 1) {
-        LOGI("Succeed to encode frame: %5d\tsize:%5d\n", g_frame_count, g_packet.size);
+        LOGI("Succeed to encode frame: %d\t,size:%d\n", g_frame_count, g_packet.size);
         g_frame_count++;
         //标识该AVPacket所属的视频/音频流。
         g_packet.stream_index = g_stream->index;

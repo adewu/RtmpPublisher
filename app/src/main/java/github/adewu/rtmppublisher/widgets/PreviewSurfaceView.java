@@ -1,5 +1,6 @@
 package github.adewu.rtmppublisher.widgets;
 
+import android.annotation.TargetApi;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.graphics.ImageFormat;
@@ -39,7 +40,7 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
 
     public native int initFFmpeg(int width, int height, String url);
 
-    public native int encode(byte[] data);
+    public native int encodeVideo(byte[] data);
 
     private Camera mCamera;
     private SurfaceHolder mSurfaceHolder;
@@ -67,6 +68,7 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
         init();
     }
 
+    @TargetApi(21)
     public PreviewSurfaceView(Context context, AttributeSet attrs, int defStyleAttr, int defStyleRes) {
         super(context, attrs, defStyleAttr, defStyleRes);
         init();
@@ -85,7 +87,7 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
 
     @Override
     public void surfaceDestroyed(SurfaceHolder holder) {
-
+        mCamera.setPreviewCallback(null);
     }
 
 
@@ -93,21 +95,22 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
 
     }
 
-    private HandlerThread mEncodeHandlerTHread = new HandlerThread("encode");
+    private HandlerThread mEncodeHandlerTHread = new HandlerThread("encode_video");
 
     @Override
     public void onPreviewFrame(byte[] data, Camera camera) {
         if (mIsPublishing) {
 
-            mDataBundle.remove("data");
-            mDataBundle.putByteArray("data",data);
+//            mDataBundle.remove("data");
+//            mDataBundle.putByteArray("data",data);
+            mData = data;
             android.os.Message message = mEncodeHandler.obtainMessage();
-            message.setData(mDataBundle);
+//            message.setData(mDataBundle);
             mEncodeHandler.sendMessage(message);
         } else
             mPreviewFrameListener.previewFrame(data);
     }
-
+    byte[] mData ;
     private Handler mEncodeHandler;
     private Message mEncodeMessage;
     private Bundle mDataBundle;
@@ -122,8 +125,7 @@ public class PreviewSurfaceView extends SurfaceView implements SurfaceHolder.Cal
             mEncodeHandler = new Handler(mEncodeHandlerTHread.getLooper()) {
                 @Override
                 public void handleMessage(Message msg) {
-                    encode(msg.getData().getByteArray("data"));
-
+                    encodeVideo(mData);
                 }
             };
         }
