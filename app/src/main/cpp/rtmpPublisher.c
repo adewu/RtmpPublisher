@@ -87,7 +87,6 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_initFFmpeg(JNIEnv *en
         LOGE("can not find encoder!\n");
         return -1;
     }
-
     g_codec_ctx = avcodec_alloc_context3(g_codec);
     g_codec_ctx->pix_fmt = AV_PIX_FMT_YUV420P;
     g_codec_ctx->width = width;
@@ -96,6 +95,11 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_initFFmpeg(JNIEnv *en
     g_codec_ctx->time_base.den = 25;
     g_codec_ctx->bit_rate = 400000;
     g_codec_ctx->gop_size = 250;
+    //audio
+//    g_codec_ctx->sample_fmt = AV_SAMPLE_FMT_S16;
+//    g_codec_ctx->sample_rate = 44100;
+//    g_codec_ctx->channel_layout = AV_CH_LAYOUT_STEREO;
+//    g_codec_ctx->channels = av_get_channel_layout_nb_channels(g_codec_ctx->channel_layout);
 
     // some formats want stream headers to be separate
 
@@ -178,6 +182,7 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_encodeVideo(JNIEnv *e
     g_frame->format = AV_PIX_FMT_YUV420P;
     g_frame->width = g_yuv_width;
     g_frame->height = g_yuv_height;
+
 
     g_packet.data = NULL;
     g_packet.size = 0;
@@ -293,3 +298,9 @@ Java_github_adewu_rtmppublisher_widgets_PreviewSurfaceView_close(JNIEnv *env, jo
     avformat_free_context(g_fmt_ctx);
     return 0;
 }
+
+//TODO:{
+//
+//  1 初始化FFmpeg for Audio
+//  2  编码Audio frame
+// }
